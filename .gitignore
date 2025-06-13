@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+# cursor rules
+.cursor/
+
+# env
+.env
+
+# private keys
+*.key
+
+# ruff cache
+.ruff_cache/
