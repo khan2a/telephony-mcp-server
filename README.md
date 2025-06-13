@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This directory contains MCP (Modular Command Platform) tools for telephony operations, such as making voice calls and sending SMS messages using the Vonage API. These tools are designed to be integrated with Large Language Model (LLM) applications, enabling LLMs to perform real-world actions beyond simple text generation.
+This directory contains MCP (Model Context Protocol) Server tools for telephony operations, such as making voice calls and sending SMS messages using the Vonage API. These tools are designed to be integrated with Large Language Model (LLM) applications, enabling LLMs to perform real-world actions beyond simple text generation.
 
 ## LLMs and Tool Integration
 
@@ -13,7 +13,7 @@ To extend their functionality, LLMs can be connected to external tools. For exam
 ## Tool Calling with MCP and LangChain
 
 - **LangChain** is a popular framework for developing applications powered by LLMs. It provides a collection of pre-built tools (called a Toolkit) that LLMs can use to interact with external systems.
-- **MCP** (Modular Command Platform) follows the same concept: it offers a collection of pre-built tools and a framework for writing new tools and handling function calling.
+- **MCP** (Model Context Protocol) follows the same concept: it offers a collection of pre-built tools and a framework for writing new tools and handling function calling.
 - Both frameworks allow LLMs to invoke tools, parse their outputs, and integrate the results into their responses.
 
 ## How This Works
@@ -65,9 +65,10 @@ To extend their functionality, LLMs can be connected to external tools. For exam
 
 ### Using with LLM Applications
 
-- **Direct Integration**: Connect your LLM application (e.g., using LangChain or a custom MCP client) to the running MCP server. The LLM can now invoke telephony tools as needed.
-- **Example**: When the LLM receives a prompt like "Send a text to Bob," it will call the `send_sms` tool, passing the required parameters.
-
+- **Direct Integration**: Connect your LLM application (e.g., using LangChain via Adapter or a custom MCP client) to the running MCP server. The LLM can now invoke telephony tools as needed.
+- **Example**: When the LLM receives a prompt like "Dial this number +123 and read latest news from today", it will call the `voice_call` tool, passing the required parameters.
+- **Example**: When the LLM receives a prompt like "Text the news instead", it will call the `send_sms` tool, passing the required parameters.
+- 
 ## Key Concepts
 
 - **LLMs are content generators**: They generate text, images, or video, but need external tools for actions like web search, telephony, or database access.
