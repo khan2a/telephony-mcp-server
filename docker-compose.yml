@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  telephony-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telephony-mcp-server
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount these files to make it easier to update without rebuilding the image
+      - ./.env:/app/.env
+      - ./private.key:/app/private.key
+    environment:
+      # Add any additional environment variables here if needed
+      - UV_SYSTEM_PYTHON=1
+      - PYTHONUNBUFFERED=1

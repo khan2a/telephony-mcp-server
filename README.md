@@ -63,11 +63,58 @@ To extend their functionality, LLMs can be connected to external tools. For exam
     ```
     The server will start and expose the defined tools for LLM applications.
 
+### Running with Docker
+
+You can also run the telephony MCP server using Docker:
+
+1. **Build and start the Docker container**:
+    ```bash
+    docker compose up --build
+    ```
+    Or to run in the background:
+    ```bash
+    docker compose up --build -d
+    ```
+
+2. **Stop the Docker container**:
+    ```bash
+    docker compose down
+    ```
+
+3. **View logs from the Docker container**:
+    ```bash
+    docker compose logs -f
+    ```
+
 ### Using with LLM Applications
 
 - **Direct Integration**: Connect your LLM application (e.g., using LangChain via Adapter or a custom MCP client) to the running MCP server. The LLM can now invoke telephony tools as needed.
 - **Example**: When the LLM receives a prompt like "Dial this number +123 and read latest news from today", it will call the `voice_call` tool, passing the required parameters.
+- **Example**: When the LLM receives a prompt like "Call this number using a British accent", it will call the `voice_call` tool with specific language and style parameters.
 - **Example**: When the LLM receives a prompt like "Text the news instead", it will call the `send_sms` tool, passing the required parameters.
+
+### Using with Claude Desktop or other MCP clients
+
+To configure an MCP client (like Claude Desktop) to use your telephony MCP server:
+
+1. **Update your MCP client configuration file** (e.g., `claude_desktop_config.json`):
+    ```json
+    {
+      "mcpServers": {
+        "telephony": {
+          "command": "docker",
+          "args": ["run", "-i", "--rm", "--init", "-e", "DOCKER_CONTAINER=true", "telephony-mcp-server"]
+        }
+      }
+    }
+    ```
+
+2. **Build the Docker image** (if not using docker compose):
+    ```bash
+    docker build -t telephony-mcp-server .
+    ```
+
+3. Restart your MCP client to apply the changes.
 - 
 ## Key Concepts
 
