@@ -12,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Create an MCP server instance
-mcp = FastMCP("Telephony")
+telephony_mcp = FastMCP(name="Telephony", host="0.0.0.0", port=8000, mount_path="/telephony")
 
 logger.info("Loading environment variables from .env file...")
 load_dotenv()
@@ -28,7 +28,7 @@ VONAGE_SMS_URL = os.getenv("VONAGE_SMS_URL")
 logger.info("Telephony MCP server initialized.")
 
 
-@mcp.tool(
+@telephony_mcp.tool(
     name="voice_call",
     description="Make a voice call or phone call to a given number. Accepts prompts like 'dial a number', 'call to mobile', 'make a phone call', 'call a number with a message', 'dial a number and say a message', etc.",
 )
@@ -103,7 +103,7 @@ async def voice_call(*, to: str, from_: str = VONAGE_LVN, message: str) -> str:
         return f"Error initiating call: {e}"
 
 
-@mcp.tool(
+@telephony_mcp.tool(
     name="send_sms",
     description=(
         "Send an SMS or text message to a given number. Accepts prompts like 'send sms', 'send text', 'message the number', 'text a number', 'send a message', 'sms to mobile', 'text to phone', 'send a code', 'notify by sms', 'alert by text', etc."
@@ -162,4 +162,4 @@ async def send_sms(*, to: str, from_: str = VONAGE_LVN, text: str) -> str:
 
 if __name__ == "__main__":
     logger.info("Starting Telephony MCP server...")
-    mcp.run("stdio")
+    telephony_mcp.run(transport="streamable-http", mount_path="/telephony")

@@ -7,7 +7,9 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml uv.lock ./
 COPY servers/ ./servers/
+COPY utils/ ./utils/
 COPY .env private.key ./
+COPY main.py ./
 
 # Install dependencies using uv
 RUN uv pip install --system -e .
