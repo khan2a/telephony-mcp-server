@@ -63,7 +63,7 @@ async def voice_call(*, to: str, from_: str = VONAGE_LVN, message: str) -> str:
             "text": message,
             "language": "en-GB",
             "style": 0,
-            "premium": False
+            "premium": False,
         }
     ]
     data = {
