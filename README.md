@@ -1,5 +1,5 @@
 # Telephony MCP Server
-![Telephony MCP Server Demo](./telephony-mcp-server-demo.gif)
+![Telephony MCP Server Demo](./resources/telephony-mcp-server-demo.gif)
 ## Introduction
 
 This directory contains MCP (Model Context Protocol) Server tools for telephony operations, such as making voice calls and sending SMS messages using the Vonage API. These tools are designed to be integrated with Large Language Model (LLM) applications, enabling LLMs to perform real-world actions beyond simple text generation.

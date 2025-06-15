@@ -6,9 +6,10 @@ WORKDIR /app
 
 # Copy project files
 COPY pyproject.toml uv.lock ./
-COPY telephony_server.py ./
+COPY servers/ ./servers/
 COPY utils/ ./utils/
 COPY .env private.key ./
+COPY main.py ./
 
 # Install dependencies using uv
 RUN uv pip install --system -e .
@@ -21,4 +22,4 @@ ENV UV_SYSTEM_PYTHON=1
 ENV PYTHONUNBUFFERED=1
 
 # Run the telephony server
-CMD ["uv", "run", "telephony_server.py"]
+CMD ["uv", "run", "main.py"]
