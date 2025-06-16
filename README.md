@@ -1,5 +1,11 @@
 # Telephony MCP Server
-![Telephony MCP Server Demo](./resources/telephony-mcp-server-demo.gif)
+
+## Demo Using Claude Desktop
+![Telephony MCP Server Demo](./resources/demo-claude-desktop.gif)
+
+## Demo Using GitHub Copilot
+![Telephony MCP Server Demo](./resources/demo-copilot.gif)
+
 ## Introduction
 
 This directory contains MCP (Model Context Protocol) Server tools for telephony operations, such as making voice calls and sending SMS messages using the Vonage API. These tools are designed to be integrated with Large Language Model (LLM) applications, enabling LLMs to perform real-world actions beyond simple text generation.
