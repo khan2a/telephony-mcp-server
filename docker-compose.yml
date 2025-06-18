@@ -8,6 +8,7 @@ services:
     container_name: telephony-mcp-server
     ports:
       - "8000:8000"
+      - "8080:8080"
     volumes:
       # Mount these files to make it easier to update without rebuilding the image
       - ./.env:/app/.env
@@ -16,3 +17,5 @@ services:
       # Add any additional environment variables here if needed
       - UV_SYSTEM_PYTHON=1
       - PYTHONUNBUFFERED=1
+      # Uncomment and set this to your public URL when deploying to production
+      # - CALLBACK_SERVER_URL=https://your-public-url
