@@ -82,7 +82,32 @@ async def receive_event(request: Request):
         # Parse JSON if possible
         try:
             body = json.loads(body_bytes)
-            logger.info(f"Successfully parsed JSON body: {json.dumps(body, indent=2)}")
+            
+            # Log the event with appropriate detail level
+            if "speech" in body:
+                # This is a speech recognition event - log it prominently
+                speech_results = body.get("speech", {}).get("results", [])
+                if speech_results:
+                    recognized_text = speech_results[0].get("text", "")
+                    confidence = speech_results[0].get("confidence", 0)
+                    conversation_uuid = body.get("conversation_uuid", "unknown")
+                    
+                    # Log with highlighting to make it stand out
+                    logger.info("=" * 60)
+                    logger.info(f"SPEECH RECOGNITION EVENT RECEIVED!")
+                    logger.info(f"Text: '{recognized_text}'")
+                    logger.info(f"Confidence: {confidence}")
+                    logger.info(f"Conversation UUID: {conversation_uuid}")
+                    logger.info(f"Complete speech data: {json.dumps(body.get('speech'), indent=2)}")
+                    logger.info("=" * 60)
+                else:
+                    logger.info("Speech recognition event received but no results found")
+                    logger.debug(f"Empty speech event data: {json.dumps(body, indent=2)}")
+                
+            else:
+                # Regular event
+                logger.info(f"Successfully parsed JSON body: {json.dumps(body, indent=2)}")
+                
         except json.JSONDecodeError as json_err:
             body_text = str(body_bytes, 'utf-8', errors='replace')
             logger.error(f"Failed to parse JSON: {json_err}")
@@ -151,6 +176,31 @@ async def get_event(event_id: str):
         if event["id"] == event_id:
             return event
     raise HTTPException(status_code=404, detail=f"Event with ID {event_id} not found")
+
+
+@callback_app.get("/event")
+async def get_speech_events():
+    """Endpoint to retrieve only speech recognition events"""
+    speech_events = []
+    
+    for event in callback_events:
+        body = event.get("body", {})
+        if isinstance(body, dict) and "speech" in body:
+            speech_results = body.get("speech", {}).get("results", [])
+            if speech_results:
+                speech_events.append({
+                    "id": event["id"],
+                    "timestamp": event["timestamp"],
+                    "conversation_uuid": body.get("conversation_uuid"),
+                    "text": speech_results[0].get("text", ""),
+                    "confidence": speech_results[0].get("confidence", 0),
+                    "complete_event": event
+                })
+    
+    return {
+        "count": len(speech_events),
+        "speech_events": speech_events
+    }
 
 
 @callback_app.delete("/events")

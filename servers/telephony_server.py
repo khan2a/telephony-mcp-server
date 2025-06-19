@@ -82,23 +82,39 @@ async def poll_call_status(call_uuid, yield_fn):
                     continue
                 
                 # Process events in reverse chronological order (newest first)
-                events = sorted(events_data["events"], key=lambda e: e.get("timestamp", ""), reverse=True)
-                
-                # Check if any events relate to our call UUID
+                events = sorted(events_data["events"], key=lambda e: e.get("timestamp", ""), reverse=True)                    # Check if any events relate to our call UUID
                 for event in events:
                     if not isinstance(event.get("body"), dict):
                         continue
                         
                     body = event.get("body", {})
                     event_uuid = body.get("uuid")
+                    event_conversation_uuid = body.get("conversation_uuid")
                     
-                    if event_uuid != call_uuid:
+                    # Check for direct UUID match or for events related to the same conversation
+                    call_info = active_calls.get(call_uuid, {})
+                    conversation_match = (event_conversation_uuid and 
+                                         event_conversation_uuid == call_info.get("conversation_uuid"))
+                    
+                    if event_uuid != call_uuid and not conversation_match:
                         continue
                     
                     # Process this event
                     status = body.get("status")
                     direction = body.get("direction")
                     conversation_uuid = body.get("conversation_uuid")
+                    
+                    # Check for speech recognition results
+                    if (call_info.get("is_speech_input") and 
+                        body.get("dtmf") is None and 
+                        body.get("speech") is not None):
+                        
+                        speech_result = body.get("speech", {}).get("results", [{}])[0].get("text")
+                        confidence = body.get("speech", {}).get("results", [{}])[0].get("confidence")
+                        
+                        if speech_result:
+                            call_info["speech_result"] = speech_result
+                            await yield_fn(f"Speech recognized: \"{speech_result}\" (confidence: {confidence})")
                     
                     # Specific event types
                     if body.get("type") == "transfer":
@@ -416,12 +432,44 @@ async def check_call_status(*, call_uuid: str = None) -> str:
             status_updates = call_info.get("status_updates", [])
             status_history = "\n".join([f"- {update}" for update in status_updates]) if status_updates else "- No status updates recorded"
             
+            # Check if this is a speech input call and if we have results
+            speech_result_info = ""
+            if call_info.get("is_speech_input"):
+                speech_result = call_info.get("speech_result")
+                if speech_result:
+                    confidence = call_info.get("speech_confidence", "unknown")
+                    speech_timestamp = call_info.get("speech_timestamp", "unknown")
+                    
+                    # Format timestamp if available
+                    timestamp_str = ""
+                    if isinstance(speech_timestamp, (int, float)):
+                        from datetime import datetime
+                        timestamp_str = f" at {datetime.fromtimestamp(speech_timestamp).strftime('%H:%M:%S')}"
+                    
+                    speech_result_info = (
+                        f"\nSpeech recognition details:"
+                        f"\n- Result: \"{speech_result}\""
+                        f"\n- Confidence score: {confidence}"
+                        f"\n- Received{timestamp_str}"
+                    )
+                    
+                    # Include any raw speech data for debugging if available
+                    if call_info.get("speech_raw_data"):
+                        try:
+                            import json
+                            raw_data_str = json.dumps(call_info["speech_raw_data"], indent=2)
+                            speech_result_info += f"\n- Raw speech data: {raw_data_str}"
+                        except Exception:
+                            pass
+                else:
+                    speech_result_info = "\nAwaiting speech recognition results..."
+            
             return (
                 f"Call to {call_info['to']} (ID: {call_uuid}):\n"
                 f"- Current status: {active_calls[call_uuid]['status']}\n"
                 f"- From: {call_info['from']}\n"
                 f"- Message: {call_info['message']}\n"
-                f"- Conversation UUID: {call_info.get('conversation_uuid', 'unknown')}\n\n"
+                f"- Conversation UUID: {call_info.get('conversation_uuid', 'unknown')}{speech_result_info}\n\n"
                 f"Status history:\n{status_history}"
             )
         else:
@@ -504,3 +552,290 @@ if __name__ == "__main__":
         if error_info:
             logger.error(f"Error details: {error_info}")
         raise
+
+@telephony_mcp.tool(
+    name="voice_call_with_input",
+    description="Make a voice call to a given number and wait for speech input from the recipient. Returns the recognized speech.",
+)
+async def voice_call_with_input(*, to: str, from_: str = VONAGE_LVN, prompt_message: str, wait_for_result: bool = True) -> str:
+    """
+    Initiate a voice call with speech recognition capability.
+    
+    Args:
+        to: str - The destination phone number.
+        from_: str - The source phone number (optional, defaults to VONAGE_LVN).
+        prompt_message: str - The message to say during the call, prompting for speech input.
+        wait_for_result: bool - Whether to wait for speech recognition results (default: True).
+    
+    Returns:
+        Information about the call and speech recognition results if available.
+    """
+    logger.info(
+        f"Attempting to initiate call with speech input: from_={from_}, to={to}, prompt_message={prompt_message}"
+    )
+    if not (
+        VONAGE_API_KEY
+        and VONAGE_API_SECRET
+        and VONAGE_APPLICATION_ID
+        and VONAGE_PRIVATE_KEY_PATH
+    ):
+        logger.error("Vonage API credentials are not fully configured.")
+        return "Vonage API credentials are not fully configured."
+    
+    if not from_:
+        from_ = VONAGE_LVN
+    if not from_:
+        logger.error("Source number (from_) is not provided and VONAGE_LVN is not set.")
+        return "Source number (from_) is not provided and VONAGE_LVN is not set."
+        
+    # Create NCCO (Nexmo Call Control Object) with both talk and input actions
+    # The input action will use speech recognition to collect user input
+    ncco = [
+        {
+            "action": "talk",
+            "text": prompt_message,
+            "language": "en-GB",
+            "style": 0,
+            "premium": False
+        },
+        {
+            "action": "input",
+            "type": ["speech"],
+            "speech": {
+                "language": "en-GB",
+                "endOnSilence": 2,
+                "context": ["general"],
+                "startTimeout": 5,
+                "maxDuration": 30
+            },
+            "eventUrl": [f"{CALLBACK_SERVER_URL}/event"],
+            "eventMethod": "POST"
+        }
+    ]
+    
+    # Generate a conversation UUID to track this call
+    conversation_id = str(uuid.uuid4())
+    
+    data = {
+        "to": [{"type": "phone", "number": to}],
+        "from": {"type": "phone", "number": from_},
+        "event_method": "POST",
+        "event_url": [f"{CALLBACK_SERVER_URL}/event"],
+        "ncco": ncco,
+    }
+    
+    # Generate JWT token
+    jwt_token = generate_vonage_jwt(VONAGE_APPLICATION_ID, VONAGE_PRIVATE_KEY_PATH)
+    if not jwt_token:
+        logger.error(
+            "Failed to generate JWT token. Check your private key and application ID."
+        )
+        return None
+
+    logger.info("Successfully generated JWT token")
+    try:
+        logger.info(f"Sending POST to Vonage API: {VONAGE_API_URL} with data: {data}")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                VONAGE_API_URL,
+                json=data,
+                headers={
+                    "Authorization": f"Bearer {jwt_token}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10.0,
+            )
+            
+        # Log detailed response information
+        if response.status_code >= 400:
+            try:
+                response_body = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                logger.error(f"API Error: HTTP {response.status_code} - Request URL: {VONAGE_API_URL}")
+                logger.error(f"Request data: {data}")
+                logger.error(f"Response body: {response_body}")
+            except Exception as e:
+                logger.error(f"Failed to parse response body: {e}")
+                logger.error(f"Raw response: {response.text}")
+            return f"Failed to initiate call: {response.status_code} {response.text}"
+        else:
+            logger.info(f"Vonage API response: {response.status_code} {response.text}")
+            
+            if response.status_code == 201:
+                # Extract call UUID from response
+                try:
+                    response_data = response.json()
+                    call_uuid = response_data.get("uuid")
+                    conversation_uuid = response_data.get("conversation_uuid", "unknown")
+                    
+                    if not call_uuid:
+                        logger.warning("Call initiated but no UUID returned to track progress")
+                        return f"Voice call with input initiated to {to}, but no tracking ID available."
+                    
+                    # Store call info
+                    active_calls[call_uuid] = {
+                        "to": to,
+                        "from": from_,
+                        "message": prompt_message,
+                        "status": "initiated",
+                        "timestamp": asyncio.get_event_loop().time(),
+                        "conversation_uuid": conversation_uuid,
+                        "is_speech_input": True,
+                        "speech_result": None
+                    }
+                    
+                    logger.info(f"Voice call with input successfully initiated to {to} with UUID {call_uuid}.")
+                    
+                    # If not waiting for result, return immediately
+                    if not wait_for_result:
+                        return f"Voice call with input initiated to {to}. Call tracking started with ID: {call_uuid}. Use check_call_status tool to get updates."
+                    
+                    # Wait for speech recognition results
+                    logger.info(f"Waiting for speech recognition results from call to {to}...")
+                    speech_result = await wait_for_speech_result(call_uuid)
+                    
+                    if speech_result:
+                        # Get additional details
+                        call_info = active_calls.get(call_uuid, {})
+                        confidence = call_info.get("speech_confidence", "unknown")
+                        status = call_info.get("status", "unknown")
+                        
+                        # Format a detailed response with the speech result
+                        return (
+                            f"Voice call completed to {to}.\n"
+                            f"Speech recognition result: \"{speech_result}\"\n"
+                            f"Confidence: {confidence}\n"
+                            f"Call status: {status}\n"
+                            f"Call ID: {call_uuid}"
+                        )
+                    else:
+                        return f"Voice call to {to} completed with status '{active_calls.get(call_uuid, {}).get('status', 'unknown')}', but no speech input was recognized. Call ID: {call_uuid}"
+                    
+                except Exception as e:
+                    logger.exception(f"Error processing call response: {e}")
+                    return f"Voice call initiated to {to}, but error setting up progress tracking: {str(e)}"
+            
+            logger.error(f"Failed to initiate call: {response.status_code} {response.text}")
+            return f"Failed to initiate call: {response.status_code} {response.text}"
+    except Exception as e:
+        logger.exception(f"Error initiating call: {e}")
+        return f"Error initiating call: {e}"
+
+async def wait_for_speech_result(call_uuid, max_wait_time=120):
+    """
+    Wait for speech recognition results from the callback server.
+    
+    Args:
+        call_uuid: str - The UUID of the call to monitor.
+        max_wait_time: int - Maximum time to wait in seconds (default: 120).
+        
+    Returns:
+        The recognized speech or None if no speech was recognized.
+    """
+    start_time = asyncio.get_event_loop().time()
+    polling_interval = 1  # Poll every second for more responsive updates
+    timeout_message = f"Waiting for speech input (timeout in {max_wait_time} seconds)..."
+    logger.info(timeout_message)
+    
+    while (asyncio.get_event_loop().time() - start_time) < max_wait_time:
+        try:
+            # Check if we already have a result in active_calls
+            if call_uuid in active_calls and active_calls[call_uuid].get("speech_result"):
+                speech_result = active_calls[call_uuid]["speech_result"]
+                confidence = active_calls[call_uuid].get("speech_confidence", "unknown")
+                logger.info(f"Speech result found: '{speech_result}' (confidence: {confidence})")
+                return speech_result
+            
+            # First check the speech-specific endpoint for efficiency
+            async with httpx.AsyncClient() as client:
+                try:
+                    speech_response = await client.get(f"{CALLBACK_SERVER_URL}/event")
+                    
+                    if speech_response.status_code == 200:
+                        speech_data = speech_response.json()
+                        speech_events = speech_data.get("speech_events", [])
+                        
+                        if speech_events:
+                            # Get the conversation UUID for our current call
+                            call_conversation_uuid = None
+                            if call_uuid in active_calls:
+                                call_conversation_uuid = active_calls[call_uuid].get("conversation_uuid")
+                            
+                            # Find matching speech events
+                            for event in speech_events:
+                                conversation_uuid = event.get("conversation_uuid")
+                                
+                                if conversation_uuid == call_conversation_uuid:
+                                    speech_result = event.get("text", "")
+                                    confidence = event.get("confidence", 0)
+                                    
+                                    logger.info(f"Found speech result via dedicated endpoint for call {call_uuid}: '{speech_result}' (confidence: {confidence})")
+                                    
+                                    # Store the result with more details
+                                    if call_uuid in active_calls:
+                                        active_calls[call_uuid]["speech_result"] = speech_result
+                                        active_calls[call_uuid]["speech_confidence"] = confidence
+                                        active_calls[call_uuid]["speech_timestamp"] = asyncio.get_event_loop().time()
+                                        active_calls[call_uuid]["speech_event_id"] = event.get("id")
+                                        
+                                        # Store complete event if available
+                                        complete_event = event.get("complete_event")
+                                        if complete_event:
+                                            active_calls[call_uuid]["speech_raw_data"] = complete_event.get("body", {}).get("speech", {}).get("results", [])
+                                    
+                                    return speech_result
+                except Exception as e:
+                    logger.warning(f"Error accessing speech events endpoint: {e}, falling back to regular events endpoint")
+                
+                # Fallback to regular events endpoint
+                response = await client.get(f"{CALLBACK_SERVER_URL}/events?limit=100")
+                
+                if response.status_code == 200:
+                    events_data = response.json()
+                    events = events_data.get("events", [])
+                    
+                    # Process events in reverse chronological order (newest first)
+                    for event in sorted(events, key=lambda e: e.get("timestamp", ""), reverse=True):
+                        body = event.get("body", {})
+                        
+                        # Check if this is an input event for our call
+                        if isinstance(body, dict):
+                            # For input events, the UUID is in the conversation_uuid field
+                            conversation_uuid = body.get("conversation_uuid")
+                            
+                            # Match by conversation_uuid since input events use that
+                            if (call_uuid in active_calls and 
+                                conversation_uuid == active_calls[call_uuid].get("conversation_uuid")):
+                                
+                                # Check if this is a speech result
+                                if body.get("dtmf") is None and body.get("speech") is not None:
+                                    speech_results = body.get("speech", {}).get("results", [])
+                                    if speech_results:
+                                        speech_result = speech_results[0].get("text", "")
+                                        confidence = speech_results[0].get("confidence", 0)
+                                        
+                                        logger.info(f"Speech recognition result for call {call_uuid}: '{speech_result}' (confidence: {confidence})")
+                                        
+                                        # Store the result with more details
+                                        if call_uuid in active_calls:
+                                            active_calls[call_uuid]["speech_result"] = speech_result
+                                            active_calls[call_uuid]["speech_confidence"] = confidence
+                                            active_calls[call_uuid]["speech_timestamp"] = asyncio.get_event_loop().time()
+                                            active_calls[call_uuid]["speech_raw_data"] = speech_results
+                                        
+                                        return speech_result
+            
+            # Show a periodic update every 10 seconds
+            elapsed = int(asyncio.get_event_loop().time() - start_time)
+            if elapsed % 10 == 0:
+                remaining = max_wait_time - elapsed
+                logger.info(f"Still waiting for speech input... ({remaining} seconds remaining)")
+            
+            # Wait before polling again
+            await asyncio.sleep(polling_interval)
+            
+        except Exception as e:
+            logger.exception(f"Error while waiting for speech result: {e}")
+            await asyncio.sleep(polling_interval)
+    
+    logger.warning(f"Timed out waiting for speech result for call {call_uuid}")
+    return None
