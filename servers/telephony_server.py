@@ -69,9 +69,7 @@ async def voice_call(*, to: str, from_: str = VONAGE_LVN, message: str) -> str:
             "text": message,
             "language": "en-GB",
             "style": 0,
-            "premium": False,
-            "eventUrl": [f"{CALLBACK_SERVER_URL}/event"],
-            "eventMethod": "POST"
+            "premium": False
         }
     ]
     
