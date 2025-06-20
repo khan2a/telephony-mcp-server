@@ -1,6 +1,10 @@
 # Telephony MCP Server
 
 ## Demo Using Claude Desktop
+### Agentic Telephony Conversation with Speech Recognition
+![Agentic Telephony Conversation with Speech Recognition](./resources/demo-claude-agentic-call-speech-recognition.gif)
+
+### Use SMS during mid-conversation
 ![Telephony MCP Server Demo](./resources/demo-claude-desktop.gif)
 
 ## Demo Using GitHub Copilot
