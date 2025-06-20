@@ -2,13 +2,16 @@
 
 ## Demo Using Claude Desktop
 ### Agentic Telephony Conversation with Speech Recognition
-![Agentic Telephony Conversation with Speech Recognition](./resources/demo-claude-agentic-call-speech-recognition.gif)
+<img src="./resources/demo-claude-agentic-call-speech-recognition.gif" alt="Agentic Telephony Conversation with Speech Recognition" style="border: 4px solid white; border-radius: 8px;"/>
 
-### Use SMS during mid-conversation
-![Telephony MCP Server Demo](./resources/demo-claude-desktop.gif)
+### <span style="color: yellow;">Use SMS during mid-conversation</span>
+<img src="./resources/demo-claude-desktop.gif" alt="Telephony MCP Server Demo" style="border: 4px solid yellow; border-radius: 8px; display: block; margin-left: 0;"/>
 
-## Demo Using GitHub Copilot
-![Telephony MCP Server Demo](./resources/demo-copilot.gif)
+### <span style="color: #b5651d;">SMS Enquiry (Send and Receive)</span>
+<img src="./resources/demo-claude-sms-enquiry.png" alt="SMS Enquiry" style="border: 4px solid #b5651d; border-radius: 8px; display: block; margin-left: 0;" width="800"/>
+
+## <span style="color: green;">Demo Using GitHub Copilot</span>
+<img src="./resources/demo-copilot.gif" alt="Telephony MCP Server Demo" style="border: 4px solid green; border-radius: 8px; display: block; margin-left: 0;"/>
 
 ## Introduction
 
