@@ -555,7 +555,7 @@ if __name__ == "__main__":
 
 @telephony_mcp.tool(
     name="voice_call_with_input",
-    description="Make a voice call to a given number and wait for speech input from the recipient. Returns the recognized speech.",
+    description="Make a voice call to a given number and wait for speech input from the recipient. Accepts prompts like 'make a call and check', 'dial this number and ask', 'please call to check'. When these prompts are used, the tool will wait for the speech result to arrive and display it to the user. Returns the recognized speech.",
 )
 async def voice_call_with_input(*, to: str, from_: str = VONAGE_LVN, prompt_message: str, wait_for_result: bool = True) -> str:
     """
