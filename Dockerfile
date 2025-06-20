@@ -14,8 +14,8 @@ COPY main.py ./
 # Install dependencies using uv
 RUN uv pip install --system -e .
 
-# Expose port for MCP server if needed
-EXPOSE 8000
+# Expose ports for both MCP server and callback server
+EXPOSE 8000 8080
 
 # Set environment variables
 ENV UV_SYSTEM_PYTHON=1

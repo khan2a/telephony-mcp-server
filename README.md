@@ -1,6 +1,10 @@
 # Telephony MCP Server
 
 ## Demo Using Claude Desktop
+### Agentic Telephony Conversation with Speech Recognition
+![Agentic Telephony Conversation with Speech Recognition](./resources/demo-claude-agentic-call-speech-recognition.gif)
+
+### Use SMS during mid-conversation
 ![Telephony MCP Server Demo](./resources/demo-claude-desktop.gif)
 
 ## Demo Using GitHub Copilot
@@ -37,8 +41,9 @@ To extend their functionality, LLMs can be connected to external tools. For exam
 ### Prerequisites
 
 - Python 3.13+
-- MCP CLI (`mcp[cli]`), FastAPI, httpx, pyjwt, python-dotenv (see `pyproject.toml` for details)
+- MCP CLI (`mcp[cli]`), FastAPI, httpx, pyjwt, python-dotenv, uvicorn, pydantic (see `pyproject.toml` for details)
 - Vonage API credentials (API key, secret, application ID, private key)
+- Public URL for callback server (for production use)
 
 ### Setup
 
@@ -61,7 +66,12 @@ To extend their functionality, LLMs can be connected to external tools. For exam
       VONAGE_LVN=your_virtual_number
       VONAGE_API_URL=https://api.nexmo.com/v1/calls
       VONAGE_SMS_URL=https://rest.nexmo.com/sms/json
+      CALLBACK_SERVER_URL=https://your-public-url  # URL for Vonage event callbacks
       ```
+      
+      For the `CALLBACK_SERVER_URL`:
+      - In development: You can use `http://localhost:8080` (default if not specified)
+      - In production: Use a public URL (such as an ngrok URL or your deployed server)
 
 3. **Run the MCP server**:
     ```bash
@@ -128,3 +138,34 @@ To configure an MCP client (like Claude Desktop) to use your telephony MCP serve
 - **Tool calling**: LLMs can invoke backend APIs (tools) to fetch data or perform actions, then parse and present the results.
 - **Frameworks**: Both LangChain and MCP provide a structure for defining, registering, and invoking tools from LLMs.
 - **MCP**: Helps you write new tools and manage function calling, making it easy to extend LLM applications with custom capabilities.
+
+## Callback Server for Vonage Events
+
+The Telephony MCP Server also includes a Vonage Callback Server that listens on port 8080. This server is used to receive event notifications from Vonage Voice API, which are sent when voice calls are initiated, completed, or encounter errors.
+
+### Features
+- Receives and stores Vonage event callbacks
+- Provides endpoints to view and manage stored events
+- Runs as a separate service within the same application
+
+### Endpoints
+- `GET /` - Health check endpoint
+- `POST /event` - Main endpoint for receiving Vonage callbacks
+- `GET /events` - List all stored events (with pagination)
+- `GET /events/{event_id}` - Get a specific event by ID
+- `DELETE /events` - Clear all stored events
+
+### Configuration
+To use the callback server with Vonage Voice API, you need to set the `CALLBACK_SERVER_URL` environment variable to your server's public URL. This URL will be used as the `event_url` parameter in Vonage API calls.
+
+```bash
+export CALLBACK_SERVER_URL="https://your-public-url"
+```
+
+For local development, you can use a service like ngrok to expose your local server to the internet:
+
+```bash
+ngrok http 8080
+```
+
+Then set the `CALLBACK_SERVER_URL` to the ngrok URL.
