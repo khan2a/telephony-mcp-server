@@ -839,3 +839,107 @@ async def wait_for_speech_result(call_uuid, max_wait_time=120):
     
     logger.warning(f"Timed out waiting for speech result for call {call_uuid}")
     return None
+
+@telephony_mcp.tool(
+    name="sms_with_input",
+    description="Send an SMS to a recipient and wait for an event at {CALLBACK_SERVER_URL}/event. When an event arrives for the same msisdn, display the text and stop waiting. Uses the Vonage SMS API.",
+)
+async def sms_with_input(*, to: str, from_: str = VONAGE_LVN, text: str, wait_for_result: bool = True) -> str:
+    """
+    Send an SMS to a recipient and wait for an event at the callback server. When an event arrives for the same msisdn, display the text and stop waiting.
+    Args:
+        to: str - The recipient phone number (msisdn).
+        from_: str - The sender phone number (optional, defaults to VONAGE_LVN).
+        text: str - The message to send.
+        wait_for_result: bool - Whether to wait for the event (default: True).
+    Returns:
+        Information about the SMS and the event result if available.
+    """
+    logger.info(f"Attempting to send SMS: from_={from_}, to={to}, text={text}")
+    if not (VONAGE_API_KEY and VONAGE_API_SECRET):
+        logger.error("Vonage API credentials are not fully configured for SMS.")
+        return "Vonage API credentials are not fully configured for SMS."
+    if not from_:
+        from_ = VONAGE_LVN
+    if not from_:
+        logger.error("Source number (from_) is not provided and VONAGE_LVN is not set.")
+        return "Source number (from_) is not provided and VONAGE_LVN is not set."
+    sms_url = VONAGE_SMS_URL
+    payload = {
+        "api_key": VONAGE_API_KEY,
+        "api_secret": VONAGE_API_SECRET,
+        "to": to,
+        "from": from_,
+        "text": text,
+        "callback": f"{CALLBACK_SERVER_URL}/event"
+    }
+    try:
+        logger.info(f"Sending POST to Vonage SMS API: {sms_url} with payload: {payload}")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(sms_url, data=payload, timeout=10.0)
+        logger.info(f"Vonage SMS API response: {response.status_code} {response.text}")
+        if response.status_code == 200:
+            resp_json = response.json()
+            if (
+                resp_json.get("messages")
+                and resp_json["messages"][0].get("status") == "0"
+            ):
+                logger.info(f"SMS successfully sent to {to}.")
+                if not wait_for_result:
+                    return f"SMS sent to {to}. Waiting for event tracking is disabled."
+                # Wait for event in callback_events
+                logger.info(f"Waiting for event in callback_events for msisdn {to}...")
+                event_text = await wait_for_sms_callback_event(to)
+                if event_text:
+                    return (
+                        f"SMS sent to {to}.\n"
+                        f"Received reply event: \"{event_text}\"\n"
+                        f"Recipient: {to}"
+                    )
+                else:
+                    return f"SMS sent to {to}, but no event received within timeout."
+            else:
+                error_text = resp_json["messages"][0].get("error-text", "Unknown error")
+                logger.error(f"Failed to send SMS: {error_text}")
+                return f"Failed to send SMS: {error_text}"
+        logger.error(f"Failed to send SMS: {response.status_code} {response.text}")
+        return f"Failed to send SMS: {response.status_code} {response.text}"
+    except Exception as e:
+        logger.exception(f"Error sending SMS: {e}")
+        return f"Error sending SMS: {e}"
+
+async def wait_for_sms_callback_event(recipient_msisdn: str, max_wait_time: int = 180) -> str | None:
+    """
+    Wait for an event at the callback server for the given msisdn.
+    Args:
+        recipient_msisdn: str - The msisdn to match in the event.
+        max_wait_time: int - Maximum time to wait in seconds (default: 180).
+    Returns:
+        The event text if received, else None.
+    """
+    import time
+    start_time = time.time()
+    polling_interval = 1
+    logger.info(f"Waiting for SMS callback event for msisdn {recipient_msisdn} (timeout {max_wait_time}s)...")
+    already_seen = set()
+    while (time.time() - start_time) < max_wait_time:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{CALLBACK_SERVER_URL}/events?limit=100")
+                if response.status_code == 200:
+                    events_data = response.json()
+                    events = events_data.get("events", [])
+                    for event in reversed(events):
+                        body = event.get("body", {})
+                        msisdn = body.get("msisdn")
+                        text = body.get("text")
+                        event_id = event.get("id")
+                        if msisdn == recipient_msisdn and event_id not in already_seen:
+                            logger.info(f"Received callback event for msisdn {msisdn}: {text}")
+                            already_seen.add(event_id)
+                            return text
+        except Exception as e:
+            logger.warning(f"Error checking callback server events: {e}")
+        await asyncio.sleep(polling_interval)
+    logger.warning(f"Timed out waiting for SMS callback event for msisdn {recipient_msisdn}")
+    return None
