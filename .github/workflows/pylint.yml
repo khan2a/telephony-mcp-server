@@ -9,11 +9,12 @@ jobs:
       image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
     steps:
     - uses: actions/checkout@v4
+    - name: Install git
+      run: apt-get update && apt-get install -y git
     - name: Install dependencies
       run: |
         if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
         uv pip install --system black
-    - name: Check code formatting with black (via uv)
+    - name: Check code formatting with black
       run: |
-        uv pip list
         black --check $(git ls-files '*.py')
