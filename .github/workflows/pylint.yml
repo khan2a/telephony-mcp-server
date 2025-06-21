@@ -23,4 +23,4 @@ jobs:
     - name: Analysing the code with pylint (via uv)
       run: |
         uv pip list
-        uv -m pylint $(git ls-files '*.py')
+        uv pip run pylint -- $(git ls-files '*.py')
