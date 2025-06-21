@@ -16,4 +16,4 @@ jobs:
     - name: Check code formatting with black (via uv)
       run: |
         uv pip list
-        uv pip run black -- --check $(git ls-files '*.py')
+        black --check $(git ls-files '*.py')
