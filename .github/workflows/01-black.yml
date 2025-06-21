@@ -17,4 +17,4 @@ jobs:
         uv pip install --system black
     - name: Check code formatting with black
       run: |
-        black --check $(git ls-files '*.py')
+        black .
