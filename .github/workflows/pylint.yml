@@ -18,9 +18,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install uv
-        if [ -f requirements.txt ]; then uv pip install -r requirements.txt; fi
-        uv pip install pylint
+        if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
+        uv pip install --system pylint
     - name: Analysing the code with pylint (via uv)
       run: |
-        uv pip list
-        uv -m pylint $(git ls-files '*.py')
+        uv pip list --system
+        uv --system -m pylint $(git ls-files '*.py')
