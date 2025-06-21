@@ -22,5 +22,5 @@ jobs:
         uv pip install --system pylint
     - name: Analysing the code with pylint (via uv)
       run: |
-        uv pip list --system
+        uv pip list
         uv --system -m pylint $(git ls-files '*.py')
