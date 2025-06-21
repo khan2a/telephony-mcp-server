@@ -11,11 +11,10 @@ wheels/
 # cursor rules
 .cursor/
 
-# env
-.env
-
 # private keys
 *.key
 
 # ruff cache
 .ruff_cache/
+.vscode/settings.json
+.env

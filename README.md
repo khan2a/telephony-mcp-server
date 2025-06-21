@@ -1,3 +1,5 @@
+![Black](https://github.com/khan2a/telephony-mcp-server/actions/workflows/01-black.yml/badge.svg)
+![Ruff](https://github.com/khan2a/telephony-mcp-server/actions/workflows/02-ruff.yml/badge.svg)
 # Telephony MCP Server
 
 ## Demo Using Claude Desktop
