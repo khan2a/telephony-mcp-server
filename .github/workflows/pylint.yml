@@ -1,4 +1,4 @@
-name: Pylint
+name: Black
 
 on: [push]
 
@@ -12,8 +12,8 @@ jobs:
     - name: Install dependencies
       run: |
         if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
-        uv pip install --system pylint
-    - name: Analysing the code with pylint (via uv)
+        uv pip install --system black
+    - name: Check code formatting with black (via uv)
       run: |
         uv pip list
-        uv pip run pylint -- $(git ls-files '*.py')
+        uv pip run black -- --check $(git ls-files '*.py')
