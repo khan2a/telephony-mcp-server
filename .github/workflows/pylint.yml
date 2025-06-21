@@ -5,19 +5,12 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13"]
+    container:
+      image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv and dependencies
+    - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install uv
         if [ -f requirements.txt ]; then uv pip install --system -r requirements.txt; fi
         uv pip install --system pylint
     - name: Analysing the code with pylint (via uv)
