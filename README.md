@@ -177,3 +177,8 @@ ngrok http 8080
 ```
 
 Then set the `CALLBACK_SERVER_URL` to the ngrok URL.
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/khan2a-telephony-mcp-server).
+
